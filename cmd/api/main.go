@@ -1,0 +1,188 @@
+// cmd/api/main.go
+package main
+
+import (
+	"context"
+	"database/sql"
+	"log"
+	serv "net/http"
+	"os"
+	"time"
+
+	"github.com/DenisOzindzheDev/furniture-shop/internal/auth"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/config"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/handler/http"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/kafka"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/migrate"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/repositroy/postgres"
+	redisRepo "github.com/DenisOzindzheDev/furniture-shop/internal/repositroy/redis"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/service"
+	httpSwagger "github.com/swaggo/http-swagger"
+
+	"github.com/go-redis/redis/v8"
+	_ "github.com/lib/pq"
+)
+
+// @title Furniture Store API
+// @version 1.0
+// @description API для интернет-магазина мебели
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api
+// @schemes http
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description JWT токен в формате: "Bearer {token}"
+
+func main() {
+	// Load configuration
+	cfg := config.Load()
+
+	// Connect to database
+	db, err := sql.Open("postgres", cfg.DBUrl)
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+	defer db.Close()
+
+	// Test database connection with retry
+	if err := waitForDB(db, 30*time.Second); err != nil {
+		log.Fatal("Failed to connect to database after retry:", err)
+	}
+
+	// Run migrations
+	if err := runMigrations(db); err != nil {
+		log.Fatal("Failed to run migrations:", err)
+	}
+
+	// Initialize Redis client
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: cfg.RedisAddr,
+	})
+	defer redisClient.Close()
+
+	// Test Redis connection with retry
+	if err := waitForRedis(redisClient, 30*time.Second); err != nil {
+		log.Fatal("Failed to connect to Redis after retry:", err)
+	}
+
+	// Initialize Redis cache
+	cache := redisRepo.NewCache(cfg.RedisAddr, 30*time.Minute)
+	defer cache.Close()
+
+	// Initialize Kafka producer
+	producer := kafka.NewProducer(cfg.KafkaBrokers, "furniture-events")
+	defer producer.Close()
+
+	// Initialize JWT manager
+	jwtManager := auth.NewJWTManager(cfg.JWTSecret, 24*time.Hour)
+
+	// Initialize repositories
+	userRepo := postgres.NewUserRepo(db)
+	productRepo := postgres.NewProductRepo(db)
+
+	// Initialize services
+	userService := service.NewUserService(userRepo, jwtManager, producer)
+	productService := service.NewProductService(productRepo, cache)
+
+	// Initialize handlers
+	userHandler := http.NewUserHandler(userService)
+	productHandler := http.NewProductHandler(productService)
+	healthHandler := http.NewHealthHandler(db, redisClient, nil)
+
+	// Setup routes
+	mux := serv.NewServeMux()
+
+	// Swagger documentation
+	mux.Handle("/swagger/", httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8080/swagger/doc.json"), // URL pointing to API definition
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("none"),
+		httpSwagger.DomID("swagger-ui"),
+	))
+
+	// Public routes
+	mux.HandleFunc("GET /api/health", healthHandler.HealthCheck)
+	mux.HandleFunc("POST /api/register", userHandler.Register)
+	mux.HandleFunc("POST /api/login", userHandler.Login)
+	mux.HandleFunc("GET /api/products", productHandler.ListProducts)
+	mux.HandleFunc("GET /api/products/{id}", productHandler.GetProduct)
+
+	// Protected routes
+	authMiddleware := auth.AuthMiddleware(jwtManager)
+	mux.Handle("GET /api/profile", authMiddleware(serv.HandlerFunc(userHandler.Profile)))
+
+	// Create server
+	server := &serv.Server{
+		Addr:         cfg.HTTPPort,
+		Handler:      mux,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		IdleTimeout:  cfg.IdleTimeout,
+	}
+
+	log.Printf("Server starting on %s", cfg.HTTPPort)
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal("Server failed:", err)
+	}
+}
+
+// waitForDB ожидает подключения к базе данных с retry
+func waitForDB(db *sql.DB, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			if err := db.Ping(); err == nil {
+				return nil
+			}
+			log.Println("Waiting for database connection...")
+			time.Sleep(2 * time.Second)
+		}
+	}
+}
+
+// waitForRedis ожидает подключения к Redis с retry
+func waitForRedis(redisClient *redis.Client, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			if _, err := redisClient.Ping(ctx).Result(); err == nil {
+				return nil
+			}
+			log.Println("Waiting for Redis connection...")
+			time.Sleep(2 * time.Second)
+		}
+	}
+}
+
+// runMigrations запускает миграции
+func runMigrations(db *sql.DB) error {
+	// Получаем путь к миграциям из переменной окружения или используем по умолчанию
+	migrationsPath := os.Getenv("MIGRATIONS_PATH")
+	if migrationsPath == "" {
+		migrationsPath = "./migrations"
+	}
+
+	migrator := migrate.NewMigrator(migrationsPath)
+	return migrator.Run(db)
+}

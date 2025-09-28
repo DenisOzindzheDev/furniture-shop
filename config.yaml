@@ -1,0 +1,9 @@
+# config.yaml
+http_port: ":8080"
+db_url: "postgres://postgres:postgres@postgres:5432/furniture?sslmode=disable"
+redis_addr: "redis:6379"
+kafka_brokers: ["kafka:9092"]
+jwt_secret: "talesofrussianglubinka"
+read_timeout: 15s
+write_timeout: 15s
+idle_timeout: 60s
