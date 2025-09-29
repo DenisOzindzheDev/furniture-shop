@@ -3,6 +3,7 @@ package http
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/DenisOzindzheDev/furniture-shop/internal/auth"
@@ -70,6 +71,7 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "User already exists", http.StatusConflict)
 			return
 		}
+		log.Printf("Error in request %s", err.Error())
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -106,6 +108,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
+		log.Printf("Error in request %s", err.Error())
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -113,6 +116,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Get user for response
 	user, err := h.userService.GetProfile(r.Context(), 0) // We'd need to get user ID from token
 	if err != nil {
+		log.Printf("Error in request %s", err.Error())
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -144,6 +148,7 @@ func (h *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userService.GetProfile(r.Context(), claims.UserID)
 	if err != nil {
+		log.Printf("Error in request %s", err.Error())
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}

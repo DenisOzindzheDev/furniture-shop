@@ -3,6 +3,7 @@ package http
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -42,6 +43,7 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 
 	products, err := h.productService.ListProducts(r.Context(), category, page, pageSize)
 	if err != nil {
+		log.Printf("Error in request %s", err.Error())
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}

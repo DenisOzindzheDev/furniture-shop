@@ -18,8 +18,8 @@ type HealthHandler struct {
 
 func NewHealthHandler(db *sql.DB, redis *redis.Client, kafka *kafka.Writer) *HealthHandler {
 	return &HealthHandler{
-		db: db,
-		// redis: redis,
+		db:    db,
+		redis: redis,
 		kafka: kafka,
 	}
 }
@@ -39,12 +39,12 @@ func (h *HealthHandler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 		services["postgres"] = "healthy"
 	}
 
-	// // Check Redis
-	// if _, err := h.redis.Ping(r.Context()).Result(); err != nil {
-	// 	services["redis"] = "unhealthy"
-	// } else {
-	// 	services["redis"] = "healthy"
-	// }
+	// Check Redis
+	if _, err := h.redis.Ping(r.Context()).Result(); err != nil {
+		services["redis"] = "unhealthy"
+	} else {
+		services["redis"] = "healthy"
+	}
 
 	services["kafka"] = "healthy"
 

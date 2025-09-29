@@ -1,4 +1,4 @@
-# config.yaml
+# config.yaml local
 http_port: ":8080"
 db_url: "postgres://postgres:postgres@postgres:5432/furniture?sslmode=disable"
 redis_addr: "redis:6379"

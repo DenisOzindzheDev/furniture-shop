@@ -30,6 +30,12 @@ func Load() *Config {
 	viper.SetDefault("write_timeout", 15*time.Second)
 	viper.SetDefault("idle_timeout", 60*time.Second)
 
+	viper.SetConfigName("config")                    // name of config file (without extension)
+	viper.SetConfigType("yaml")                      // REQUIRED if the config file does not have the extension in the name
+	viper.AddConfigPath("/var/furniture-shop-api/")  // path to look for the config file in
+	viper.AddConfigPath("$HOME/.furniture-shop-api") // call multiple times to add many search paths
+	viper.AddConfigPath(".")                         // optionally look for config in the working directory
+
 	viper.SetEnvPrefix("APP")
 	viper.AutomaticEnv()
 
