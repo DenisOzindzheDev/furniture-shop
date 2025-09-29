@@ -4,9 +4,10 @@ package main
 import (
 	"context"
 	"database/sql"
-	"log"
 	serv "net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	_ "github.com/DenisOzindzheDev/furniture-shop/docs"
@@ -15,11 +16,12 @@ import (
 	"github.com/DenisOzindzheDev/furniture-shop/internal/handler/http"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/kafka"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/migrate"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/repositroy/postgres"
-	redisRepo "github.com/DenisOzindzheDev/furniture-shop/internal/repositroy/redis"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/repository/postgres"
+	redisRepo "github.com/DenisOzindzheDev/furniture-shop/internal/repository/redis"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/service"
 	"github.com/rs/cors"
 	httpSwagger "github.com/swaggo/http-swagger"
+	"go.uber.org/zap"
 
 	"github.com/go-redis/redis/v8"
 	_ "github.com/lib/pq"
@@ -47,28 +49,32 @@ import (
 // @description JWT токен в формате: "Bearer {token}"
 
 func main() {
+	// Struct logging
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+	sugar := logger.Sugar()
 	// Load configuration
 	cfg := config.Load()
 
 	// Connect to database
 	db, err := sql.Open("postgres", cfg.DBUrl)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		sugar.Fatalw("Failed to connect to database:", err)
 	}
 	defer db.Close()
 
 	// Test database connection with retry
 	if err := waitForDB(db, 30*time.Second); err != nil {
-		log.Fatal("Failed to connect to database after retry:", err)
+		sugar.Fatalw("Failed to connect to database after retry:", err)
 	}
 	migrations, err := sql.Open("postgres", cfg.DBUrl)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		sugar.Fatalw("Failed to connect to database:", err)
 	}
 	defer migrations.Close()
 	// Run migrations
 	if err := runMigrations(migrations); err != nil {
-		log.Fatal("Failed to run migrations:", err)
+		sugar.Fatalw("Failed to run migrations:", err)
 	}
 
 	// Initialize Redis client
@@ -79,7 +85,7 @@ func main() {
 
 	// Test Redis connection with retry
 	if err := waitForRedis(redisClient, 30*time.Second); err != nil {
-		log.Fatal("Failed to connect to Redis after retry:", err)
+		sugar.Fatalw("Failed to connect to Redis after retry:", err)
 	}
 
 	// Initialize Redis cache
@@ -134,7 +140,7 @@ func main() {
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
-		Debug:            true,
+		Debug:            cfg.CorsDebug,
 	})
 	handlerWithCORS := c.Handler(mux)
 
@@ -147,10 +153,29 @@ func main() {
 		IdleTimeout:  cfg.IdleTimeout,
 	}
 
-	log.Printf("Server starting on %s", cfg.HTTPPort)
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal("Server failed:", err)
+	// ---------------------
+	// Graceful Shutdown
+	// ---------------------
+	go func() {
+		sugar.Infow("starting server", "port", cfg.HTTPPort)
+		if err := server.ListenAndServe(); err != nil && err != serv.ErrServerClosed {
+			sugar.Fatalw("server error", "error", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	sugar.Infow("shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		sugar.Fatalw("server forced to shutdown", "error", err)
 	}
+
+	sugar.Infow("server exited properly")
 }
 
 // waitForDB ожидает подключения к базе данных с retry
@@ -166,7 +191,6 @@ func waitForDB(db *sql.DB, timeout time.Duration) error {
 			if err := db.Ping(); err == nil {
 				return nil
 			}
-			log.Println("Waiting for database connection...")
 			time.Sleep(2 * time.Second)
 		}
 	}
@@ -185,7 +209,6 @@ func waitForRedis(redisClient *redis.Client, timeout time.Duration) error {
 			if _, err := redisClient.Ping(ctx).Result(); err == nil {
 				return nil
 			}
-			log.Println("Waiting for Redis connection...")
 			time.Sleep(2 * time.Second)
 		}
 	}

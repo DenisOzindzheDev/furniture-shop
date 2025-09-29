@@ -18,6 +18,7 @@ type Config struct {
 	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`
 	IdleTimeout  time.Duration `mapstructure:"idle_timeout"`
+	CorsDebug    bool          `mapstructure:"cors_debug"`
 }
 
 func Load() *Config {
@@ -29,6 +30,7 @@ func Load() *Config {
 	viper.SetDefault("read_timeout", 15*time.Second)
 	viper.SetDefault("write_timeout", 15*time.Second)
 	viper.SetDefault("idle_timeout", 60*time.Second)
+	viper.SetDefault("cors_debug", true)
 
 	viper.SetConfigName("config")                    // name of config file (without extension)
 	viper.SetConfigType("yaml")                      // REQUIRED if the config file does not have the extension in the name

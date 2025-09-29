@@ -3,10 +3,11 @@ package service
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/DenisOzindzheDev/furniture-shop/internal/entity"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/repositroy/postgres"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/repositroy/redis"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/repository/postgres"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/repository/redis"
 )
 
 type ProductService struct {
@@ -51,7 +52,7 @@ func (s *ProductService) ListProducts(ctx context.Context, category string, page
 }
 
 func (s *ProductService) GetProduct(ctx context.Context, id int) (*entity.Product, error) {
-	cacheKey := "product:" + string(rune(id))
+	cacheKey := "product:" + strconv.Itoa(id)
 
 	var product *entity.Product
 	err := s.cache.Get(ctx, cacheKey, &product)

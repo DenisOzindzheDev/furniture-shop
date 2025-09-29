@@ -8,7 +8,7 @@ import (
 	"github.com/DenisOzindzheDev/furniture-shop/internal/auth"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/entity"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/kafka"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/repositroy/postgres"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/repository/postgres"
 )
 
 var (
