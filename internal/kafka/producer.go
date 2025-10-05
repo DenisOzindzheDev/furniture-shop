@@ -1,4 +1,3 @@
-// internal/kafka/producer.go
 package kafka
 
 import (

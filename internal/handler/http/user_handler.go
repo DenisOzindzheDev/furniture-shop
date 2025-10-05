@@ -1,4 +1,3 @@
-// internal/handler/http/user_handler.go
 package http
 
 import (
@@ -9,6 +8,7 @@ import (
 	"github.com/DenisOzindzheDev/furniture-shop/internal/auth"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/entity"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/service"
+	"github.com/DenisOzindzheDev/furniture-shop/pkg/utils"
 )
 
 type UserHandler struct {
@@ -35,6 +35,8 @@ type AuthResponse struct {
 	User  *entity.User `json:"user"`
 }
 
+// ErrorResponse represents a standardized error response
+// @Description ErrorResponse provides a consistent structure for API errors
 type ErrorResponse struct {
 	Error string `json:"error" example:"error message"`
 }
@@ -67,7 +69,7 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.userService.Register(r.Context(), user)
 	if err != nil {
-		if err == service.ErrUserExists {
+		if err == utils.ErrUserExists {
 			http.Error(w, "User already exists", http.StatusConflict)
 			return
 		}
@@ -104,7 +106,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.userService.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
-		if err == service.ErrInvalidCredentials {
+		if err == utils.ErrInvalidCredentials {
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
@@ -113,8 +115,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user for response
-	user, err := h.userService.GetProfile(r.Context(), 0) // We'd need to get user ID from token
+	user, err := h.userService.GetProfile(r.Context(), 0)
 	if err != nil {
 		log.Printf("Error in request %s", err.Error())
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

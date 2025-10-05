@@ -2,6 +2,8 @@ module github.com/DenisOzindzheDev/furniture-shop
 
 go 1.24.6
 
+require github.com/aws/aws-sdk-go v1.55.8
+
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/PuerkitoBio/purell v1.2.1 // indirect
@@ -27,6 +29,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.15.11 // indirect
 	github.com/lib/pq v1.10.9 // indirect

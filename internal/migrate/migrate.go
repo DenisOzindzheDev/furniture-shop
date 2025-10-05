@@ -1,4 +1,3 @@
-// internal/migrate/migrate.go
 package migrate
 
 import (
@@ -24,19 +23,16 @@ func NewMigrator(migrationsPath string) *Migrator {
 }
 
 func (m *Migrator) Run(db *sql.DB) error {
-	// Получаем абсолютный путь к миграциям
 	absPath, err := filepath.Abs(m.migrationsPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	// Создаем драйвер для PostgreSQL
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
 
-	// Создаем мигратор
 	migrator, err := migrate.NewWithDatabaseInstance(
 		fmt.Sprintf("file://%s", absPath),
 		"postgres",
@@ -47,7 +43,6 @@ func (m *Migrator) Run(db *sql.DB) error {
 	}
 	defer migrator.Close()
 
-	// Выполняем миграции
 	log.Println("Running database migrations...")
 	err = migrator.Up()
 	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
@@ -60,7 +55,6 @@ func (m *Migrator) Run(db *sql.DB) error {
 		log.Println("Migrations applied successfully")
 	}
 
-	// Проверяем версию миграции
 	version, dirty, err := migrator.Version()
 	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
 		return fmt.Errorf("failed to get migration version: %w", err)

@@ -11,7 +11,6 @@ definitions:
       id:
         type: integer
       image_url:
-        description: Мб подойдет S3
         type: string
       name:
         type: string
@@ -46,6 +45,7 @@ definitions:
         $ref: '#/definitions/entity.User'
     type: object
   http.ErrorResponse:
+    description: ErrorResponse provides a consistent structure for API errors
     properties:
       error:
         example: error message
@@ -59,6 +59,22 @@ definitions:
       password:
         example: password123
         type: string
+    type: object
+  http.ProductsResponse:
+    description: ProductsResponse contains paginated list of products with metadata
+    properties:
+      has_more:
+        type: boolean
+      page:
+        type: integer
+      page_size:
+        type: integer
+      products:
+        items:
+          $ref: '#/definitions/entity.Product'
+        type: array
+      total:
+        type: integer
     type: object
   http.RegisterRequest:
     properties:
@@ -86,6 +102,234 @@ info:
   title: Furniture Store API
   version: "1.0"
 paths:
+  /admin/products:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает список продуктов с пагинацией для админ-панели. Требуются
+        права администратора.
+      parameters:
+      - description: Фильтр по категории
+        in: query
+        name: category
+        type: string
+      - default: 1
+        description: Номер страницы
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 20
+        description: Размер страницы
+        in: query
+        maximum: 100
+        minimum: 1
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.ProductsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Получение списка продуктов (админ)
+      tags:
+      - admin-products
+    post:
+      consumes:
+      - multipart/form-data
+      description: Создает новый продукт с возможностью загрузки изображения. Требуются
+        права администратора.
+      parameters:
+      - description: Название продукта
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Описание продукта
+        in: formData
+        name: description
+        required: true
+        type: string
+      - description: Цена продукта
+        in: formData
+        name: price
+        required: true
+        type: number
+      - description: Категория продукта
+        in: formData
+        name: category
+        required: true
+        type: string
+      - description: Количество на складе
+        in: formData
+        name: stock
+        required: true
+        type: integer
+      - description: Изображение продукта (JPEG, PNG, WebP до 10MB)
+        in: formData
+        name: image
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/entity.Product'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Создание нового продукта
+      tags:
+      - admin-products
+  /admin/products/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет продукт по ID. Также удаляет связанное изображение из S3.
+        Требуются права администратора.
+      parameters:
+      - description: ID продукта
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Удаление продукта
+      tags:
+      - admin-products
+    put:
+      consumes:
+      - multipart/form-data
+      description: Обновляет существующий продукт. Все поля опциональны - обновляются
+        только переданные поля. Требуются права администратора.
+      parameters:
+      - description: ID продукта
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Название продукта
+        in: formData
+        name: name
+        type: string
+      - description: Описание продукта
+        in: formData
+        name: description
+        type: string
+      - description: Цена продукта
+        in: formData
+        name: price
+        type: number
+      - description: Категория продукта
+        in: formData
+        name: category
+        type: string
+      - description: Количество на складе
+        in: formData
+        name: stock
+        type: integer
+      - description: Изображение продукта (JPEG, PNG, WebP до 10MB)
+        in: formData
+        name: image
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.Product'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Обновление продукта
+      tags:
+      - admin-products
   /login:
     post:
       consumes:
@@ -147,9 +391,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/entity.Product'
-            type: array
+            $ref: '#/definitions/http.ProductsResponse'
         "500":
           description: Internal Server Error
           schema:
