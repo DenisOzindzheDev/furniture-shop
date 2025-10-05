@@ -1,4 +1,3 @@
-// cmd/migrate/main.go
 package main
 
 import (
@@ -12,22 +11,18 @@ import (
 )
 
 func main() {
-	// Load configuration
 	cfg := config.Load()
 
-	// Connect to database
 	db, err := sql.Open("postgres", cfg.DBUrl)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	defer db.Close()
 
-	// Test database connection
 	if err := db.Ping(); err != nil {
 		log.Fatal("Failed to ping database:", err)
 	}
 
-	// Run migrations
 	migrationsPath := os.Getenv("MIGRATIONS_PATH")
 	if migrationsPath == "" {
 		migrationsPath = "./migrations"

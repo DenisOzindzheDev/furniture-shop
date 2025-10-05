@@ -1,15 +1,10 @@
-// internal/auth/jwt.go
 package auth
 
 import (
-	"errors"
 	"time"
 
+	"github.com/DenisOzindzheDev/furniture-shop/pkg/utils"
 	"github.com/golang-jwt/jwt/v4"
-)
-
-var (
-	ErrInvalidToken = errors.New("invalid token")
 )
 
 type Claims struct {
@@ -49,7 +44,7 @@ func (m *JWTManager) Generate(userID int, email, role string) (string, error) {
 func (m *JWTManager) Verify(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, ErrInvalidToken
+			return nil, utils.ErrInvalidToken
 		}
 		return []byte(m.secretKey), nil
 	})
@@ -60,7 +55,7 @@ func (m *JWTManager) Verify(tokenString string) (*Claims, error) {
 
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
-		return nil, ErrInvalidToken
+		return nil, utils.ErrInvalidToken
 	}
 
 	return claims, nil

@@ -1,4 +1,3 @@
-// internal/handler/http/health_handler.go
 package http
 
 import (
@@ -32,14 +31,12 @@ type HealthResponse struct {
 func (h *HealthHandler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	services := make(map[string]string)
 
-	// Check PostgreSQL
 	if err := h.db.Ping(); err != nil {
 		services["postgres"] = "unhealthy"
 	} else {
 		services["postgres"] = "healthy"
 	}
 
-	// Check Redis
 	if _, err := h.redis.Ping(r.Context()).Result(); err != nil {
 		services["redis"] = "unhealthy"
 	} else {
