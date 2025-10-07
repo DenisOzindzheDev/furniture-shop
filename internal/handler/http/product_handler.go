@@ -1,4 +1,3 @@
-// internal/handler/http/product_handler.go
 package http
 
 import (
@@ -26,7 +25,7 @@ func NewProductHandler(productService *service.ProductService) *ProductHandler {
 // @Param category query string false "Фильтр по категории"
 // @Param page query int false "Номер страницы" default(1)
 // @Param page_size query int false "Размер страницы" default(20)
-// @Success 200 {array} entity.Product
+// @Success 200 {object} ProductsResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /products [get]
 func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
@@ -40,14 +39,24 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 		pageSize = 20
 	}
 
-	products, err := h.productService.ListProducts(r.Context(), category, page, pageSize)
+	products, total, err := h.productService.ListProducts(r.Context(), category, page, pageSize)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
+	hasMore := total > 0 && (page*pageSize) < total
+
+	response := ProductsResponse{
+		Products: products,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+		HasMore:  hasMore,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(products)
+	json.NewEncoder(w).Encode(response)
 }
 
 // GetProduct godoc

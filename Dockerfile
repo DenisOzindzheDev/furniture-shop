@@ -1,55 +1,34 @@
+# Builder stage
 FROM golang:1.25-alpine AS builder
 
-
-# Устанавливаем swag
-RUN go install github.com/swaggo/swag/cmd/swag@latest
-
+RUN apk add --no-cache git
 WORKDIR /app
 
-# Устанавливаем зависимости
+# Копируем зависимости first для лучшего кэширования
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Копируем исходный код
+# Устанавливаем swag и копируем исходный код
+RUN go install github.com/swaggo/swag/cmd/swag@latest
 COPY . .
 
-# Генерируем Swagger документацию
+# Генерируем swagger и собираем бинарники
 RUN swag init -g cmd/api/main.go -o docs
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -a -installsuffix cgo -o api ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -a -installsuffix cgo -o migrate ./cmd/migrate
 
-# Собираем основное приложение
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/api
+# Production stage
+FROM gcr.io/distroless/static-debian11
 
-# Собираем утилиту миграций
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/migrate
+WORKDIR /app
 
-# Финальный образ
-FROM alpine:latest
-
-RUN apk --no-cache add ca-certificates
-
-WORKDIR /root/
-
-# Копируем бинарники
-COPY --from=builder /app/main .
+# Копируем только необходимые файлы
+COPY --from=builder /app/api .
 COPY --from=builder /app/migrate .
-
-# Копируем конфигурацию
-COPY --from=builder /app/config.yaml .
-
-# Копируем миграции в правильную директорию
+COPY --from=builder /app/config/config.yaml /var/furniture-shop-api/config.yaml
 COPY --from=builder /app/migrations ./migrations/
-
-# Копируем документацию
 COPY --from=builder /app/docs ./docs/
-
-# Создаем не-root пользователя
-RUN addgroup -S app && adduser -S app -G app
-
-# Меняем владельца файлов
-RUN chown -R app:app /root/
-
-USER app
 
 EXPOSE 8080
 
-CMD ["./main"]
+CMD ["./api"]

@@ -3,17 +3,12 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"github.com/DenisOzindzheDev/furniture-shop/internal/auth"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/entity"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/kafka"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/repositroy/postgres"
-)
-
-var (
-	ErrUserExists         = errors.New("user already exists")
-	ErrInvalidCredentials = errors.New("invalid credentials")
+	"github.com/DenisOzindzheDev/furniture-shop/internal/repository/postgres"
+	"github.com/DenisOzindzheDev/furniture-shop/pkg/utils"
 )
 
 type UserService struct {
@@ -36,7 +31,7 @@ func (s *UserService) Register(ctx context.Context, user *entity.User) (string, 
 		return "", err
 	}
 	if existing != nil {
-		return "", ErrUserExists
+		return "", utils.ErrUserExists
 	}
 
 	if err := user.HashPassword(); err != nil {
@@ -61,7 +56,7 @@ func (s *UserService) Login(ctx context.Context, email, password string) (string
 		return "", err
 	}
 	if user == nil || !user.CheckPassword(password) {
-		return "", ErrInvalidCredentials
+		return "", utils.ErrInvalidCredentials
 	}
 
 	return s.jwtManager.Generate(user.ID, user.Email, user.Role)

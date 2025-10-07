@@ -1,23 +1,27 @@
-// cmd/api/main.go
 package main
 
 import (
 	"context"
 	"database/sql"
-	"log"
 	serv "net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	_ "github.com/DenisOzindzheDev/furniture-shop/docs"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/auth"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/config"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/handler/http"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/kafka"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/migrate"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/repositroy/postgres"
-	redisRepo "github.com/DenisOzindzheDev/furniture-shop/internal/repositroy/redis"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/repository/postgres"
+	redisRepo "github.com/DenisOzindzheDev/furniture-shop/internal/repository/redis"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/service"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/storage"
+	"github.com/rs/cors"
 	httpSwagger "github.com/swaggo/http-swagger"
+	"go.uber.org/zap"
 
 	"github.com/go-redis/redis/v8"
 	_ "github.com/lib/pq"
@@ -45,65 +49,66 @@ import (
 // @description JWT токен в формате: "Bearer {token}"
 
 func main() {
-	// Load configuration
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+	sugar := logger.Sugar()
+
 	cfg := config.Load()
 
-	// Connect to database
 	db, err := sql.Open("postgres", cfg.DBUrl)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		sugar.Fatalw("Failed to connect to database:", err)
 	}
 	defer db.Close()
 
-	// Test database connection with retry
 	if err := waitForDB(db, 30*time.Second); err != nil {
-		log.Fatal("Failed to connect to database after retry:", err)
+		sugar.Fatalw("Failed to connect to database after retry:", err)
 	}
 
-	// Run migrations
-	if err := runMigrations(db); err != nil {
-		log.Fatal("Failed to run migrations:", err)
+	migrations, err := sql.Open("postgres", cfg.DBUrl)
+	if err != nil {
+		sugar.Fatalw("Failed to connect to database:", err)
+	}
+	defer migrations.Close()
+
+	if err := runMigrations(migrations); err != nil {
+		sugar.Fatalw("Failed to run migrations:", err)
 	}
 
-	// Initialize Redis client
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: cfg.RedisAddr,
 	})
 	defer redisClient.Close()
 
-	// Test Redis connection with retry
-	if err := waitForRedis(redisClient, 30*time.Second); err != nil {
-		log.Fatal("Failed to connect to Redis after retry:", err)
+	s3Storage, err := storage.NewS3Storage(&cfg.AWS)
+	if err != nil {
+		sugar.Infof("Warning: Failed to initialize S3 storage: %v", err)
+		sugar.Infow("Continuing without S3 storage...")
 	}
 
-	// Initialize Redis cache
+	if err := waitForRedis(redisClient, 30*time.Second); err != nil {
+		sugar.Fatalw("Failed to connect to Redis after retry:", err)
+	}
+
 	cache := redisRepo.NewCache(cfg.RedisAddr, 30*time.Minute)
 	defer cache.Close()
 
-	// Initialize Kafka producer
 	producer := kafka.NewProducer(cfg.KafkaBrokers, "furniture-events")
 	defer producer.Close()
 
-	// Initialize JWT manager
 	jwtManager := auth.NewJWTManager(cfg.JWTSecret, 24*time.Hour)
-
-	// Initialize repositories
+	imageService := service.NewImageService(s3Storage, cfg)
 	userRepo := postgres.NewUserRepo(db)
 	productRepo := postgres.NewProductRepo(db)
-
-	// Initialize services
 	userService := service.NewUserService(userRepo, jwtManager, producer)
-	productService := service.NewProductService(productRepo, cache)
-
-	// Initialize handlers
+	productService := service.NewProductService(productRepo, imageService, cache)
 	userHandler := http.NewUserHandler(userService)
 	productHandler := http.NewProductHandler(productService)
 	healthHandler := http.NewHealthHandler(db, redisClient, nil)
+	productAdminHandler := http.NewProductAdminHandler(productService)
 
-	// Setup routes
 	mux := serv.NewServeMux()
 
-	// Swagger documentation
 	mux.Handle("/swagger/", httpSwagger.Handler(
 		httpSwagger.URL("http://localhost:8080/swagger/doc.json"), // URL pointing to API definition
 		httpSwagger.DeepLinking(true),
@@ -111,33 +116,60 @@ func main() {
 		httpSwagger.DomID("swagger-ui"),
 	))
 
-	// Public routes
 	mux.HandleFunc("GET /api/health", healthHandler.HealthCheck)
 	mux.HandleFunc("POST /api/register", userHandler.Register)
 	mux.HandleFunc("POST /api/login", userHandler.Login)
 	mux.HandleFunc("GET /api/products", productHandler.ListProducts)
 	mux.HandleFunc("GET /api/products/{id}", productHandler.GetProduct)
 
-	// Protected routes
 	authMiddleware := auth.AuthMiddleware(jwtManager)
 	mux.Handle("GET /api/profile", authMiddleware(serv.HandlerFunc(userHandler.Profile)))
 
-	// Create server
+	adminMiddleware := auth.AuthMiddleware(jwtManager)
+	mux.Handle("POST /api/admin/products", adminMiddleware(serv.HandlerFunc(productAdminHandler.CreateProduct)))
+	mux.Handle("PUT /api/admin/products/{id}", adminMiddleware(serv.HandlerFunc(productAdminHandler.UpdateProduct)))
+	mux.Handle("DELETE /api/admin/products/{id}", adminMiddleware(serv.HandlerFunc(productAdminHandler.DeleteProduct)))
+	mux.Handle("GET /api/admin/products", adminMiddleware(serv.HandlerFunc(productAdminHandler.ListProducts)))
+
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000", "http://127.0.0.1:3000"}, // Nuxt dev server
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+		Debug:            cfg.CorsDebug,
+	})
+	handlerWithCORS := c.Handler(mux)
+
 	server := &serv.Server{
 		Addr:         cfg.HTTPPort,
-		Handler:      mux,
+		Handler:      handlerWithCORS,
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
 		IdleTimeout:  cfg.IdleTimeout,
 	}
 
-	log.Printf("Server starting on %s", cfg.HTTPPort)
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal("Server failed:", err)
+	go func() {
+		sugar.Infow("starting server", "port", cfg.HTTPPort)
+		if err := server.ListenAndServe(); err != nil && err != serv.ErrServerClosed {
+			sugar.Fatalw("server error", "error", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	sugar.Infow("shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		sugar.Fatalw("server forced to shutdown", "error", err)
 	}
+
+	sugar.Infow("server exited properly")
 }
 
-// waitForDB ожидает подключения к базе данных с retry
 func waitForDB(db *sql.DB, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -150,13 +182,11 @@ func waitForDB(db *sql.DB, timeout time.Duration) error {
 			if err := db.Ping(); err == nil {
 				return nil
 			}
-			log.Println("Waiting for database connection...")
 			time.Sleep(2 * time.Second)
 		}
 	}
 }
 
-// waitForRedis ожидает подключения к Redis с retry
 func waitForRedis(redisClient *redis.Client, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -169,15 +199,12 @@ func waitForRedis(redisClient *redis.Client, timeout time.Duration) error {
 			if _, err := redisClient.Ping(ctx).Result(); err == nil {
 				return nil
 			}
-			log.Println("Waiting for Redis connection...")
 			time.Sleep(2 * time.Second)
 		}
 	}
 }
 
-// runMigrations запускает миграции
 func runMigrations(db *sql.DB) error {
-	// Получаем путь к миграциям из переменной окружения или используем по умолчанию
 	migrationsPath := os.Getenv("MIGRATIONS_PATH")
 	if migrationsPath == "" {
 		migrationsPath = "./migrations"
