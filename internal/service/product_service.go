@@ -126,12 +126,8 @@ func (s *ProductService) ListProducts(ctx context.Context, category string, page
 	offset := (page - 1) * pageSize
 
 	var products []*entity.Product
-	err := s.cache.Get(ctx, cacheKey, &products)
-	if err == nil && products != nil {
-		return products, -1, nil
-	}
 
-	products, err = s.productRepo.List(ctx, category, pageSize, offset)
+	products, err := s.productRepo.List(ctx, category, pageSize, offset)
 	if err != nil {
 		return nil, 0, err
 	}
