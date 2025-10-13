@@ -6,20 +6,104 @@ on:
   push:
     branches: [ "master" ]
 
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    
+    - name: Setup vars
+      id: vars
+      run: |
+        # Получаем короткий хэш коммита
+        echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        
+        # Получаем имя автора
+        echo "AUTHOR=$(git log -1 --pretty=format:'%an')" >> $GITHUB_OUTPUT
+        
+        # Получаем сообщение коммита (первая строка)
+        COMMIT_MSG=$(git log -1 --pretty=format:'%s')
+        echo "COMMIT_MSG=$COMMIT_MSG" >> $GITHUB_OUTPUT
+        
+        # Текущее время
+        echo "BUILD_TIME=$(date +'%Y-%m-%d %H:%M:%S %Z')" >> $GITHUB_OUTPUT
+    
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag fs:$(date +%s)
-    - name: Send message to Telegram
+      run: docker build . --file Dockerfile --tag fs:${{ steps.vars.outputs.SHORT_SHA }}
+    
+    - name: Send build success message to Telegram
       uses: appleboy/telegram-action@master
       with:
         to: ${{ secrets.TELEGRAM_TO }}
         token: ${{ secrets.TELEGRAM_TOKEN }}
-        message: |  #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
-          ${{ github.event_name }} commit in ${{ github.repository }} by "${{ github.actor }}". [${{github.sha}}@${{ github.ref }}]
-    - name: Message
-      run: echo 'Build Success!'
+        message: |
+          ✅ Furniture Shop CI/CD
+          ━━━━━━━━━━━━━━━━━━━━━
+          
+          📊 Build Status: SUCCESS
+          🏷️ Version: ${{ steps.vars.outputs.SHORT_SHA }}
+          ⚡ Trigger: ${{ github.event_name }}
+          👤 Author: ${{ steps.vars.outputs.AUTHOR }}
+          
+          📝 Commit Message:
+          ${{ steps.vars.outputs.COMMIT_MSG }}
+          
+          🌿 Branch: ${{ github.ref_name }}
+          📦 Repo: ${{ github.repository }}
+          
+          🔗 Quick Links:
+          • View Changes: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+          • Action Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          • Source Code: https://github.com/${{ github.repository }}
+          
+          ⏰ Built at: ${{ steps.vars.outputs.BUILD_TIME }}
+          
+          🐳 Docker image tagged as: fs:${{ steps.vars.outputs.SHORT_SHA }}
+          
+          ━━━━━━━━━━━━━━━━━━━━━
+          Furniture Shop API • Automated CI/CD
+
+  notify-failure:
+    runs-on: ubuntu-latest
+    if: failure()
+    needs: build
+    steps:
+    - name: Setup vars
+      id: vars
+      run: |
+        echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "AUTHOR=$(git log -1 --pretty=format:'%an')" >> $GITHUB_OUTPUT
+        COMMIT_MSG=$(git log -1 --pretty=format:'%s')
+        echo "COMMIT_MSG=$COMMIT_MSG" >> $GITHUB_OUTPUT
+        echo "BUILD_TIME=$(date +'%Y-%m-%d %H:%M:%S %Z')" >> $GITHUB_OUTPUT
+    
+    - name: Send build failure message to Telegram
+      uses: appleboy/telegram-action@master
+      with:
+        to: ${{ secrets.TELEGRAM_TO }}
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        message: |
+          🚨 Furniture Shop CI/CD
+          ━━━━━━━━━━━━━━━━━━━━━
+          
+          📊 Build Status: FAILED ❌
+          🏷️ Version: ${{ steps.vars.outputs.SHORT_SHA }}
+          ⚡ Trigger: ${{ github.event_name }}
+          👤 Author: ${{ steps.vars.outputs.AUTHOR }}
+          
+          📝 Commit Message:
+          ${{ steps.vars.outputs.COMMIT_MSG }}
+          
+          🌿 Branch: ${{ github.ref_name }}
+          
+          ❗ Issue: Docker build failed
+          🔧 Action Required: Check build logs
+          
+          🔗 Quick Links:
+          • Failed Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          • View Changes: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+          
+          ⏰ Failed at: ${{ steps.vars.outputs.BUILD_TIME }}
+          
+          ━━━━━━━━━━━━━━━━━━━━━
+          Furniture Shop API • Automated CI/CD
