@@ -106,6 +106,8 @@ func main() {
 	productHandler := http.NewProductHandler(productService)
 	healthHandler := http.NewHealthHandler(db, redisClient, nil)
 	productAdminHandler := http.NewProductAdminHandler(productService)
+	pdfService := service.NewPDFService("http://localhost:8080")
+	productPDFHandler := http.NewProductPDFHandler(productService, pdfService)
 
 	mux := serv.NewServeMux()
 
@@ -121,6 +123,8 @@ func main() {
 	mux.HandleFunc("POST /api/login", userHandler.Login)
 	mux.HandleFunc("GET /api/products", productHandler.ListProducts)
 	mux.HandleFunc("GET /api/products/{id}", productHandler.GetProduct)
+	mux.HandleFunc("GET /api/products/{id}/download", productPDFHandler.DownloadProductPDF)
+	mux.HandleFunc("GET /api/products/{id}/preview", productPDFHandler.PreviewProductPDF)
 
 	authMiddleware := auth.AuthMiddleware(jwtManager)
 	mux.Handle("GET /api/profile", authMiddleware(serv.HandlerFunc(userHandler.Profile)))

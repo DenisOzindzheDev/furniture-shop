@@ -18,3 +18,7 @@ aws:
   secret_access_key: "furniture"
   s3_bucket: "furniture"
   s3_host: "furniture-s3"
+
+pdf:
+  base_url: "http://localhost:8080"
+  company_name: "Мебельный магазин"

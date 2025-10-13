@@ -365,6 +365,29 @@ const docTemplate = `{
                 }
             }
         },
+        "/dev/test-pdf": {
+            "get": {
+                "description": "Генерирует тестовый PDF для проверки функциональности",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/pdf"
+                ],
+                "tags": [
+                    "development"
+                ],
+                "summary": "Тест генерации PDF",
+                "responses": {
+                    "200": {
+                        "description": "Тестовый PDF файл",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "Выполняет вход пользователя и возвращает JWT токен",
@@ -495,6 +518,106 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/entity.Product"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/products/{id}/download": {
+            "get": {
+                "description": "Генерирует и возвращает PDF файл с информацией о продукте",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/pdf"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Скачать PDF карточку продукта",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID продукта",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PDF файл",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/products/{id}/preview": {
+            "get": {
+                "description": "Генерирует и возвращает PDF файл для просмотра в браузере",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/pdf"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Просмотр PDF карточки продукта",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID продукта",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PDF файл",
+                        "schema": {
+                            "type": "file"
                         }
                     },
                     "400": {

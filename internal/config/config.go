@@ -23,6 +23,7 @@ type Config struct {
 	AllowedImageTypes []string `mapstructure:"allowed_image_types"`
 
 	AWS AWS `mapstructure:"aws"`
+	PDF PDF `mapstructure:"pdf"`
 }
 
 type AWS struct {
@@ -31,6 +32,13 @@ type AWS struct {
 	SecretAccessKey string `mapstructure:"secret_access_key"`
 	S3Bucket        string `mapstructure:"s3_bucket"`
 	S3Host          string `mapstructure:"s3_host"`
+}
+
+type PDF struct {
+	BaseURL     string `mapstructure:"base_url"`
+	FontPath    string `mapstructure:"font_path"`
+	LogoPath    string `mapstructure:"logo_path"`
+	CompanyName string `mapstructure:"company_name"`
 }
 
 func Load() *Config {
@@ -50,6 +58,8 @@ func Load() *Config {
 	viper.SetDefault("aws.secret_access_key", "furniture")
 	viper.SetDefault("aws.s3_bucket", "furniture")
 	viper.SetDefault("aws.s3_host", "furniture-s3")
+	viper.SetDefault("pdf.base_url", "http://localhost:8080")
+	viper.SetDefault("pdf.company_name", "Furniture Shop")
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")

@@ -330,6 +330,21 @@ paths:
       summary: Обновление продукта
       tags:
       - admin-products
+  /dev/test-pdf:
+    get:
+      consumes:
+      - application/json
+      description: Генерирует тестовый PDF для проверки функциональности
+      produces:
+      - application/pdf
+      responses:
+        "200":
+          description: Тестовый PDF файл
+          schema:
+            type: file
+      summary: Тест генерации PDF
+      tags:
+      - development
   /login:
     post:
       consumes:
@@ -430,6 +445,72 @@ paths:
           schema:
             $ref: '#/definitions/http.ErrorResponse'
       summary: Получение информации о продукте
+      tags:
+      - products
+  /products/{id}/download:
+    get:
+      consumes:
+      - application/json
+      description: Генерирует и возвращает PDF файл с информацией о продукте
+      parameters:
+      - description: ID продукта
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/pdf
+      responses:
+        "200":
+          description: PDF файл
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Скачать PDF карточку продукта
+      tags:
+      - products
+  /products/{id}/preview:
+    get:
+      consumes:
+      - application/json
+      description: Генерирует и возвращает PDF файл для просмотра в браузере
+      parameters:
+      - description: ID продукта
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/pdf
+      responses:
+        "200":
+          description: PDF файл
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Просмотр PDF карточки продукта
       tags:
       - products
   /profile:

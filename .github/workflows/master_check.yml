@@ -3,16 +3,23 @@ name: Test-PR
 on:
   pull_request:
     branches: [ "master" ]
+  push:
+    branches: [ "master" ]
+
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag fs:$(date +%s)
+    - name: Send message to Telegram
+      uses: appleboy/telegram-action@master
+      with:
+        to: ${{ secrets.TELEGRAM_TO }}
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        message: |  #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+          ${{ github.event_name }} commit in ${{ github.repository }} by "${{ github.actor }}". [${{github.sha}}@${{ github.ref }}]
     - name: Message
-      run: Build Success!
+      run: echo 'Build Success!'

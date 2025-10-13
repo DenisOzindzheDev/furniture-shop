@@ -31,11 +31,14 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
+	github.com/jung-kurt/gofpdf v1.16.2 // indirect
 	github.com/klauspost/compress v1.15.11 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mailru/easyjson v0.9.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/phpdave11/gofpdi v1.0.15 // indirect
 	github.com/pierrec/lz4/v4 v4.1.16 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
