@@ -5,10 +5,10 @@ import (
 	"context"
 
 	"github.com/DenisOzindzheDev/furniture-shop/internal/auth"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/entity"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/kafka"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/repository/postgres"
-	"github.com/DenisOzindzheDev/furniture-shop/pkg/utils"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/common/errors"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/domain/entity"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/infra/kafka"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/infra/postgres"
 )
 
 type UserService struct {
@@ -31,7 +31,7 @@ func (s *UserService) Register(ctx context.Context, user *entity.User) (string, 
 		return "", err
 	}
 	if existing != nil {
-		return "", utils.ErrUserExists
+		return "", errors.ErrUserExists
 	}
 
 	if err := user.HashPassword(); err != nil {
@@ -50,18 +50,22 @@ func (s *UserService) Register(ctx context.Context, user *entity.User) (string, 
 	return s.jwtManager.Generate(user.ID, user.Email, user.Role)
 }
 
-func (s *UserService) Login(ctx context.Context, email, password string) (string, error) {
+func (s *UserService) Login(ctx context.Context, email, password string) (string, *entity.User, error) {
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if user == nil || !user.CheckPassword(password) {
-		return "", utils.ErrInvalidCredentials
+		return "", nil, errors.ErrInvalidCredentials
 	}
 
-	return s.jwtManager.Generate(user.ID, user.Email, user.Role)
-}
+	token, err := s.jwtManager.Generate(user.ID, user.Email, user.Role)
+	if err != nil {
+		return "", nil, err
+	}
 
+	return token, user, nil
+}
 func (s *UserService) GetProfile(ctx context.Context, userID int) (*entity.User, error) {
 	return s.userRepo.GetByID(ctx, userID)
 }

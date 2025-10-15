@@ -36,7 +36,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  http.AuthResponse:
+  handler.AuthResponse:
     properties:
       token:
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -44,14 +44,40 @@ definitions:
       user:
         $ref: '#/definitions/entity.User'
     type: object
-  http.ErrorResponse:
+  handler.ErrorProductResponse:
+    description: Стандартный формат ответа при ошибке
+    properties:
+      code:
+        example: 500
+        type: integer
+      details:
+        example: ошибка подключения к базе
+        type: string
+      message:
+        example: Internal server error
+        type: string
+    type: object
+  handler.ErrorResponse:
     description: ErrorResponse provides a consistent structure for API errors
     properties:
       error:
         example: error message
         type: string
     type: object
-  http.LoginRequest:
+  handler.ErrorUserResponse:
+    description: ErrorUserResponse используется для отображения ошибок API
+    properties:
+      code:
+        example: 500
+        type: integer
+      details:
+        example: ошибка при обращении к базе
+        type: string
+      message:
+        example: Internal server error
+        type: string
+    type: object
+  handler.LoginRequest:
     properties:
       email:
         example: user@example.com
@@ -60,7 +86,7 @@ definitions:
         example: password123
         type: string
     type: object
-  http.ProductsResponse:
+  handler.ProductsResponse:
     description: ProductsResponse contains paginated list of products with metadata
     properties:
       has_more:
@@ -76,7 +102,7 @@ definitions:
       total:
         type: integer
     type: object
-  http.RegisterRequest:
+  handler.RegisterRequest:
     properties:
       email:
         example: user@example.com
@@ -132,19 +158,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.ProductsResponse'
+            $ref: '#/definitions/handler.ProductsResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
       security:
       - BearerAuth: []
       summary: Получение списка продуктов (админ)
@@ -195,23 +221,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "413":
           description: Request Entity Too Large
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
       security:
       - BearerAuth: []
       summary: Создание нового продукта
@@ -237,23 +263,23 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
       security:
       - BearerAuth: []
       summary: Удаление продукта
@@ -304,27 +330,27 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "413":
           description: Request Entity Too Large
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
       security:
       - BearerAuth: []
       summary: Обновление продукта
@@ -356,26 +382,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.LoginRequest'
+          $ref: '#/definitions/handler.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.AuthResponse'
+            $ref: '#/definitions/handler.AuthResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorUserResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorUserResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorUserResponse'
       summary: Авторизация пользователя
       tags:
       - auth
@@ -406,11 +432,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/http.ProductsResponse'
+            $ref: '#/definitions/handler.ProductsResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
       summary: Получение списка продуктов
       tags:
       - products
@@ -435,15 +461,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorProductResponse'
       summary: Получение информации о продукте
       tags:
       - products
@@ -468,15 +494,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorResponse'
       summary: Скачать PDF карточку продукта
       tags:
       - products
@@ -501,15 +527,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorResponse'
       summary: Просмотр PDF карточки продукта
       tags:
       - products
@@ -517,7 +543,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Возвращает информацию о текущем пользователе
+      description: Возвращает информацию о текущем пользователе по JWT токену
       produces:
       - application/json
       responses:
@@ -528,11 +554,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorUserResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorUserResponse'
       security:
       - BearerAuth: []
       summary: Получение профиля пользователя
@@ -549,26 +575,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/http.RegisterRequest'
+          $ref: '#/definitions/handler.RegisterRequest'
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
-            $ref: '#/definitions/http.AuthResponse'
+            $ref: '#/definitions/handler.AuthResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorUserResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorUserResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/http.ErrorResponse'
+            $ref: '#/definitions/handler.ErrorUserResponse'
       summary: Регистрация пользователя
       tags:
       - auth

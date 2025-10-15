@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/DenisOzindzheDev/furniture-shop/internal/common/errors"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/config"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/storage"
-	"github.com/DenisOzindzheDev/furniture-shop/pkg/utils"
+	storage "github.com/DenisOzindzheDev/furniture-shop/internal/infra/s3"
 )
 
 type ImageService struct {
@@ -28,17 +28,17 @@ func NewImageService(storage *storage.S3Storage, cfg *config.Config) *ImageServi
 func (s *ImageService) ValidateImage(fileHeader *multipart.FileHeader) error {
 	// Проверяем размер файла
 	if fileHeader.Size > s.cfg.MaxUploadSize {
-		return utils.ErrFileTooLarge
+		return errors.ErrFileTooLarge
 	}
 
 	contentType := fileHeader.Header.Get("Content-Type")
 	if !s.isAllowedImageType(contentType) {
-		return utils.ErrInvalidFileType
+		return errors.ErrInvalidFileType
 	}
 
 	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
 	if !s.isAllowedExtension(ext) {
-		return utils.ErrInvalidFileType
+		return errors.ErrInvalidFileType
 	}
 
 	return nil
@@ -52,7 +52,7 @@ func (s *ImageService) UploadImage(ctx context.Context, file multipart.File, hea
 
 	fileURL, err := s.storage.UploadFile(ctx, file, header)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", utils.ErrFileUploadFailed, err)
+		return "", fmt.Errorf("%w: %v", errors.ErrFileUploadFailed, err)
 	}
 
 	return fileURL, nil
@@ -65,7 +65,7 @@ func (s *ImageService) DeleteImage(ctx context.Context, fileURL string) error {
 	}
 
 	if err := s.storage.DeleteFile(ctx, fileURL); err != nil {
-		return fmt.Errorf("%w: %v", utils.ErrFileUploadFailed, err)
+		return fmt.Errorf("%w: %v", errors.ErrFileUploadFailed, err)
 	}
 
 	return nil

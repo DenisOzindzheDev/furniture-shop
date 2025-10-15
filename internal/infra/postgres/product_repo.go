@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/DenisOzindzheDev/furniture-shop/internal/entity"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/domain/entity"
 )
 
 type ProductRepo struct {

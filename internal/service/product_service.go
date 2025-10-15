@@ -4,10 +4,10 @@ import (
 	"context"
 	"mime/multipart"
 
-	"github.com/DenisOzindzheDev/furniture-shop/internal/entity"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/repository/postgres"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/repository/redis"
-	"github.com/DenisOzindzheDev/furniture-shop/pkg/utils"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/common/errors"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/domain/entity"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/infra/postgres"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/infra/redis"
 )
 
 type ProductService struct {
@@ -51,7 +51,7 @@ func (s *ProductService) UpdateProduct(ctx context.Context, product *entity.Prod
 		return err
 	}
 	if oldProduct == nil {
-		return utils.ErrProductNotFound
+		return errors.ErrProductNotFound
 	}
 
 	if imageFile != nil && imageHeader != nil {
@@ -91,7 +91,7 @@ func (s *ProductService) DeleteProduct(ctx context.Context, id int) error {
 		return err
 	}
 	if product == nil {
-		return utils.ErrProductNotFound
+		return errors.ErrProductNotFound
 	}
 
 	if product.ImageURL != "" {
@@ -156,7 +156,7 @@ func (s *ProductService) GetProduct(ctx context.Context, id int) (*entity.Produc
 		return nil, err
 	}
 	if product == nil {
-		return nil, utils.ErrProductNotFound
+		return nil, errors.ErrProductNotFound
 	}
 
 	go s.cache.Set(context.Background(), cacheKey, product)

@@ -1,4 +1,4 @@
-package http
+package handler
 
 import (
 	"encoding/json"
@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/DenisOzindzheDev/furniture-shop/internal/auth"
-	"github.com/DenisOzindzheDev/furniture-shop/internal/entity"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/common/errors"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/domain/entity"
 	"github.com/DenisOzindzheDev/furniture-shop/internal/service"
-	"github.com/DenisOzindzheDev/furniture-shop/pkg/utils"
 )
 
 type UserHandler struct {
@@ -35,10 +35,12 @@ type AuthResponse struct {
 	User  *entity.User `json:"user"`
 }
 
-// ErrorResponse represents a standardized error response
-// @Description ErrorResponse provides a consistent structure for API errors
-type ErrorResponse struct {
-	Error string `json:"error" example:"error message"`
+// ErrorUserResponse представляет стандартную структуру ошибки для user-хендлеров
+// @Description ErrorUserResponse используется для отображения ошибок API
+type ErrorUserResponse struct {
+	Code    int    `json:"code" example:"500"`
+	Message string `json:"message" example:"Internal server error"`
+	Details string `json:"details,omitempty" example:"ошибка при обращении к базе"`
 }
 
 // Register godoc
@@ -48,15 +50,15 @@ type ErrorResponse struct {
 // @Accept json
 // @Produce json
 // @Param request body RegisterRequest true "Данные для регистрации"
-// @Success 200 {object} AuthResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 409 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 201 {object} AuthResponse
+// @Failure 400 {object} ErrorUserResponse
+// @Failure 409 {object} ErrorUserResponse
+// @Failure 500 {object} ErrorUserResponse
 // @Router /register [post]
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		writeUserError(w, http.StatusBadRequest, "Некорректное тело запроса", err.Error())
 		return
 	}
 
@@ -69,17 +71,19 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.userService.Register(r.Context(), user)
 	if err != nil {
-		if err == utils.ErrUserExists {
-			http.Error(w, "User already exists", http.StatusConflict)
-			return
+		switch err {
+		case errors.ErrUserExists:
+			writeUserError(w, http.StatusConflict, "Пользователь уже существует", err.Error())
+		default:
+			log.Printf("Register error: %v", err)
+			writeUserError(w, http.StatusInternalServerError, "Ошибка при регистрации пользователя", err.Error())
 		}
-		log.Printf("Error in request %s", err.Error())
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(AuthResponse{
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(AuthResponse{
 		Token: token,
 		User:  user,
 	})
@@ -93,37 +97,31 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param request body LoginRequest true "Данные для входа"
 // @Success 200 {object} AuthResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 {object} ErrorUserResponse
+// @Failure 401 {object} ErrorUserResponse
+// @Failure 500 {object} ErrorUserResponse
 // @Router /login [post]
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		writeUserError(w, http.StatusBadRequest, "Некорректное тело запроса", err.Error())
 		return
 	}
 
-	token, err := h.userService.Login(r.Context(), req.Email, req.Password)
+	token, user, err := h.userService.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
-		if err == utils.ErrInvalidCredentials {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
-			return
+		switch err {
+		case errors.ErrInvalidCredentials:
+			writeUserError(w, http.StatusUnauthorized, "Неверный email или пароль", err.Error())
+		default:
+			log.Printf("Login error: %v", err)
+			writeUserError(w, http.StatusInternalServerError, "Ошибка при входе", err.Error())
 		}
-		log.Printf("Error in request %s", err.Error())
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	user, err := h.userService.GetProfile(r.Context(), 0)
-	if err != nil {
-		log.Printf("Error in request %s", err.Error())
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(AuthResponse{
+	_ = json.NewEncoder(w).Encode(AuthResponse{
 		Token: token,
 		User:  user,
 	})
@@ -131,29 +129,29 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 // Profile godoc
 // @Summary Получение профиля пользователя
-// @Description Возвращает информацию о текущем пользователе
+// @Description Возвращает информацию о текущем пользователе по JWT токену
 // @Tags users
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Success 200 {object} entity.User
-// @Failure 401 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 401 {object} ErrorUserResponse
+// @Failure 500 {object} ErrorUserResponse
 // @Router /profile [get]
 func (h *UserHandler) Profile(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		writeUserError(w, http.StatusUnauthorized, "Неавторизованный доступ", "JWT токен отсутствует или недействителен")
 		return
 	}
 
 	user, err := h.userService.GetProfile(r.Context(), claims.UserID)
 	if err != nil {
-		log.Printf("Error in request %s", err.Error())
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		log.Printf("Profile error: %v", err)
+		writeUserError(w, http.StatusInternalServerError, "Не удалось получить профиль пользователя", err.Error())
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }

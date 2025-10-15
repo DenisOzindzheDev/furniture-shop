@@ -41,7 +41,7 @@ func (m *Migrator) Run(db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("failed to create migrator: %w", err)
 	}
-	defer migrator.Close()
+	// defer migrator.Close() убрал короче потому-что ебается соединение с бд
 
 	log.Println("Running database migrations...")
 	err = migrator.Up()

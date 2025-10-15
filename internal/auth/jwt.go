@@ -3,7 +3,7 @@ package auth
 import (
 	"time"
 
-	"github.com/DenisOzindzheDev/furniture-shop/pkg/utils"
+	"github.com/DenisOzindzheDev/furniture-shop/internal/common/errors"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -44,7 +44,7 @@ func (m *JWTManager) Generate(userID int, email, role string) (string, error) {
 func (m *JWTManager) Verify(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, utils.ErrInvalidToken
+			return nil, errors.ErrInvalidToken
 		}
 		return []byte(m.secretKey), nil
 	})
@@ -55,7 +55,7 @@ func (m *JWTManager) Verify(tokenString string) (*Claims, error) {
 
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
-		return nil, utils.ErrInvalidToken
+		return nil, errors.ErrInvalidToken
 	}
 
 	return claims, nil
